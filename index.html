@@ -18,6 +18,7 @@
             --text-secondary: #a8c7fa;
             --accent-blue: #3b82f6;
             --accent-yellow: #facc15;
+            --alert-red: #ef4444;
         }
 
         body {
@@ -46,13 +47,14 @@
             color: var(--text-secondary);
             font-size: 14px;
             margin-top: 20px;
+            padding: 0 16px;
         }
 
         /* Header / Location Styling */
         .weather-header {
             padding: 16px 8px;
             text-align: left;
-            display: none; /* Hidden until data loads */
+            display: none; 
         }
         .location-title {
             font-size: 28px;
@@ -78,7 +80,7 @@
             border-radius: 28px;
             padding: 20px;
             box-sizing: border-box;
-            display: none; /* Hidden until data loads */
+            display: none; 
         }
         .card-title {
             font-size: 15px;
@@ -113,7 +115,7 @@
         }
         .hourly-box .temp { font-weight: 600; font-size: 15px; margin-bottom: 6px; }
         .hourly-box img { width: 32px; height: 32px; }
-        .hourly-box .pop { font-size: 11px; color: #60a5fa; min-height: 15px; margin: 4px 0; font-weight: 500;}
+        .hourly-box .pop { font-size: 11px; color: var(--accent-blue); min-height: 15px; margin: 4px 0; font-weight: 500;}
         .hourly-box .time { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
 
         /* Daily Capsule Pills Styles */
@@ -131,13 +133,13 @@
         .daily-capsule .max-temp { font-weight: 600; font-size: 15px; }
         .daily-capsule .min-temp { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
         .daily-capsule img { width: 32px; height: 32px; }
-        .daily-capsule .pop { font-size: 11px; color: #60a5fa; min-height: 15px; margin: 6px 0; font-weight: 500;}
+        .daily-capsule .pop { font-size: 11px; color: var(--accent-blue); min-height: 15px; margin: 6px 0; font-weight: 500;}
         .daily-capsule .day { font-size: 13px; font-weight: 500; margin-top: 4px; }
         .daily-capsule .date { font-size: 11px; color: var(--text-secondary); }
 
         /* Bento Grid Layout */
         .bento-grid {
-            display: none; /* Hidden until data loads */
+            display: none; 
             grid-template-columns: 1fr 1fr;
             gap: 12px;
         }
@@ -174,13 +176,29 @@
         .condition-bar { display: flex; height: 6px; margin: 0 10px 6px 10px; border-radius: 3px; overflow: hidden; }
         .condition-segment { flex: 1; border-right: 1px solid var(--surface-color); }
         .condition-segment:last-child { border-right: none; }
+
+        /* Footer / Utilities */
+        .footer-tools {
+            text-align: center;
+            margin-top: 24px;
+            padding-bottom: 24px;
+        }
+        .reset-btn {
+            background: none;
+            border: none;
+            color: var(--outline-color);
+            font-size: 12px;
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 8px;
+        }
     </style>
 </head>
 <body>
 
     <div class="dashboard-container">
         
-        <div id="status-message">Requesting location...</div>
+        <div id="status-message">Initializing...</div>
 
         <!-- Header View -->
         <div class="weather-header" id="header-card">
@@ -208,17 +226,13 @@
         <!-- 24 Hourly Forecast Scroll Row -->
         <div class="m3-card" id="hourly-card">
             <div class="card-title">Hourly forecast</div>
-            <div class="scroll-row" id="hourly-scroll">
-                <!-- Injected via JavaScript -->
-            </div>
+            <div class="scroll-row" id="hourly-scroll"></div>
         </div>
 
         <!-- 7-Day Forecast Scroll Row (Capsule Pill Design) -->
         <div class="m3-card" id="daily-card">
             <div class="card-title">7-day forecast</div>
-            <div class="scroll-row" id="daily-scroll">
-                <!-- Injected via JavaScript -->
-            </div>
+            <div class="scroll-row" id="daily-scroll"></div>
         </div>
 
         <!-- Bento Layout Grid for Secondary Data Metrics -->
@@ -268,15 +282,36 @@
             </div>
         </div>
 
+        <div class="footer-tools">
+            <button class="reset-btn" onclick="resetApiKey()">Reset API Key</button>
+        </div>
+
     </div>
 
     <script>
         // ==========================================
-        // INSERT YOUR OPENWEATHER API KEY HERE
+        // LOCAL STORAGE AND GEOLOCATION LOGIC
         // ==========================================
-        const API_KEY = "YOUR_API_KEY_HERE";
+        let API_KEY = localStorage.getItem('openWeatherKey');
 
         document.addEventListener("DOMContentLoaded", () => {
+            // Check if key exists; prompt if it doesn't
+            if (!API_KEY) {
+                API_KEY = prompt("Welcome! Please enter your OpenWeather One Call API 3.0 Key:");
+                if (API_KEY) {
+                    localStorage.setItem('openWeatherKey', API_KEY);
+                } else {
+                    document.getElementById('status-message').innerHTML = "API Key is required. <br><br> Refresh the page to enter it.";
+                    return;
+                }
+            }
+
+            requestLocationAndFetch();
+        });
+
+        function requestLocationAndFetch() {
+            document.getElementById('status-message').textContent = "Requesting location...";
+            
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
@@ -286,7 +321,7 @@
                         fetchWeatherData(lat, lon);
                     },
                     (error) => {
-                        document.getElementById('status-message').textContent = "Location access denied or failed. Please enable location services.";
+                        document.getElementById('status-message').textContent = "Location access denied or failed. Please enable location services for this site.";
                         console.error("Geolocation error:", error);
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -294,13 +329,28 @@
             } else {
                 document.getElementById('status-message').textContent = "Geolocation is not supported by this browser.";
             }
-        });
+        }
 
+        function resetApiKey() {
+            if(confirm("Are you sure you want to remove your saved API key?")) {
+                localStorage.removeItem('openWeatherKey');
+                location.reload();
+            }
+        }
+
+        // ==========================================
+        // DATA FETCHING LOGIC
+        // ==========================================
         async function fetchWeatherData(lat, lon) {
             try {
                 // 1. Fetch Location Name (Reverse Geocoding)
                 const geoUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`;
                 const geoRes = await fetch(geoUrl);
+                
+                if (geoRes.status === 401) {
+                    throw new Error("Invalid API Key. Please click 'Reset API Key' at the bottom of the page and try again.");
+                }
+                
                 const geoData = await geoRes.json();
                 const locationName = (geoData && geoData.length > 0) ? geoData[0].local_names?.en || geoData[0].name : "Unknown Location";
 
@@ -308,7 +358,7 @@
                 const weatherUrl = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`;
                 const weatherRes = await fetch(weatherUrl);
                 
-                if (!weatherRes.ok) throw new Error("Failed to fetch weather data. Check your API Key.");
+                if (!weatherRes.ok) throw new Error("Failed to fetch weather data. Make sure you are subscribed to One Call API 3.0.");
                 const weatherData = await weatherRes.json();
 
                 // 3. Hide status message and show UI elements
@@ -323,11 +373,14 @@
                 initDashboard(weatherData, locationName);
 
             } catch (error) {
-                document.getElementById('status-message').textContent = error.message;
+                document.getElementById('status-message').innerHTML = `<span style="color:var(--alert-red)">${error.message}</span>`;
                 console.error(error);
             }
         }
 
+        // ==========================================
+        // UI RENDERING LOGIC
+        // ==========================================
         function initDashboard(data, locationName) {
             document.getElementById('location-name').textContent = locationName;
 
@@ -336,7 +389,7 @@
             document.getElementById('current-temp').textContent = Math.round(current.temp) + '°';
             document.getElementById('current-desc').textContent = current.weather[0].description;
             
-            // UK Hybrid Conversions: Convert m/s wind standard from OpenWeather API into mph
+            // UK Hybrid Conversions: Convert m/s to mph
             const windMph = Math.round(current.wind_speed * 2.23694);
             document.getElementById('bento-wind').textContent = windMph + ' mph';
             document.getElementById('bento-wind-dir').textContent = 'From angle ' + current.wind_deg + '°';
@@ -348,6 +401,7 @@
             let uvText = "Low";
             if(current.uvi >= 3) uvText = "Moderate";
             if(current.uvi >= 6) uvText = "High";
+            if(current.uvi >= 8) uvText = "Very High";
             document.getElementById('bento-uv-label').textContent = uvText;
 
             // --- MINUTELY RAIN GRAPH ---
@@ -381,6 +435,7 @@
 
             // --- HOURLY SCROLL ROW ---
             const hourlyContainer = document.getElementById('hourly-scroll');
+            hourlyContainer.innerHTML = ''; // Clear container
             data.hourly.slice(0, 24).forEach((hour, idx) => {
                 const date = new Date(hour.dt * 1000);
                 const timeString = idx === 0 ? 'Now' : date.getHours().toString().padStart(2, '0') + ':00';
@@ -400,6 +455,7 @@
 
             // --- DAILY CAPSULE GRID ---
             const dailyContainer = document.getElementById('daily-scroll');
+            dailyContainer.innerHTML = ''; // Clear container
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             data.daily.forEach((day, idx) => {
                 const date = new Date(day.dt * 1000);
@@ -410,123 +466,4 @@
 
                 const capsule = document.createElement('div');
                 capsule.className = 'daily-capsule';
-                capsule.innerHTML = `
-                    <span class="max-temp">${Math.round(day.temp.max)}°</span>
-                    <span class="min-temp">${Math.round(day.temp.min)}°</span>
-                    <img src="https://openweathermap.org/img/wn/${iconCode}@2x.png" alt="icon">
-                    <span class="pop">${popVal}</span>
-                    <span class="day">${dayString}</span>
-                    <span class="date">${dateString}</span>
-                `;
-                dailyContainer.appendChild(capsule);
-            });
-
-            // --- METEOGRAMS ---
-            Chart.register(ChartDataLabels);
-            renderMeteograms(data);
-        }
-
-        function renderMeteograms(weatherData) {
-            const showLocalPeaks = (context) => {
-                const data = context.dataset.data;
-                const i = context.dataIndex;
-                if (i === 0 || i === data.length - 1) return true; 
-                return (data[i] > data[i - 1] && data[i] > data[i + 1]) || (data[i] < data[i - 1] && data[i] < data[i + 1]); 
-            };
-            const alignPeaks = (context) => {
-                const data = context.dataset.data;
-                return data[context.dataIndex] >= data[context.dataIndex - 1] ? 'top' : 'bottom';
-            };
-
-            // 24-Hour Analytics
-            const hourly = weatherData.hourly.slice(0, 24);
-            const labels24 = [], temps24 = [], windSpeeds24 = [], rains24 = [], conditions24 = [];
-
-            hourly.forEach(hour => {
-                const date = new Date(hour.dt * 1000);
-                labels24.push(date.getHours().toString().padStart(2, '0'));
-                temps24.push(hour.temp);
-                windSpeeds24.push(hour.wind_speed * 2.23694);
-                rains24.push(hour.rain && hour.rain['1h'] ? hour.rain['1h'] : 0);
-
-                if (hour.pop > 0.3) conditions24.push('#3b82f6');
-                else if (hour.clouds > 50) conditions24.push('#6b7280');
-                else conditions24.push('#facc15');
-            });
-
-            const conditionBar24 = document.getElementById('condition-bar-24');
-            conditions24.forEach(color => {
-                const div = document.createElement('div');
-                div.className = 'condition-segment';
-                div.style.backgroundColor = color;
-                conditionBar24.appendChild(div);
-            });
-
-            new Chart(document.getElementById('meteogram-24').getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: labels24,
-                    datasets: [
-                        { label: 'Rain (mm)', data: rains24, yAxisID: 'yRain', borderColor: '#60a5fa', fill: false, tension: 0.4, pointRadius: 0, datalabels: { display: false } },
-                        { label: 'Wind Speed (MPH)', data: windSpeeds24, yAxisID: 'yWind', borderColor: '#eab308', borderWidth: 1.5, tension: 0.4, pointRadius: 0, datalabels: { display: false } },
-                        {
-                            label: 'Temp (°C)', data: temps24, yAxisID: 'yTemp', borderWidth: 2.5, tension: 0.4, pointRadius: 0,
-                            borderColor: '#ef4444',
-                            datalabels: { display: showLocalPeaks, align: alignPeaks, formatter: Math.round, color: '#ffffff', font: { weight: 'bold', size: 10 } }
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { color: '#222' }, ticks: { color: '#888' } },
-                        yTemp: { type: 'linear', position: 'left', grid: { color: '#222' }, ticks: { color: '#ef4444' } },
-                        yWind: { type: 'linear', position: 'right', grid: { display: false }, ticks: { color: '#eab308' } },
-                        yRain: { display: false, min: 0, max: 10 }
-                    }
-                }
-            });
-
-            // 7-Day Analytics
-            const daily = weatherData.daily;
-            const labels7 = [], temps7 = [], conditions7 = [];
-            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-            daily.forEach(day => {
-                const date = new Date(day.dt * 1000);
-                labels7.push(dayNames[date.getDay()]);
-                temps7.push(day.temp.day);
-                if (day.pop > 0.3) conditions7.push('#3b82f6');
-                else if (day.clouds > 50) conditions7.push('#6b7280');
-                else conditions7.push('#facc15');
-            });
-
-            const conditionBar7 = document.getElementById('condition-bar-7');
-            conditions7.forEach(color => {
-                const div = document.createElement('div');
-                div.className = 'condition-segment';
-                div.style.backgroundColor = color;
-                conditionBar7.appendChild(div);
-            });
-
-            new Chart(document.getElementById('meteogram-7').getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: labels7,
-                    datasets: [{
-                        label: 'Day Temp (°C)', data: temps7, borderWidth: 2.5, tension: 0.4, pointRadius: 3, borderColor: '#ef4444',
-                        datalabels: { display: true, align: 'top', formatter: Math.round, color: '#ffffff' }
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { color: '#222' }, ticks: { color: '#888' } },
-                        y: { grid: { color: '#222' }, ticks: { color: '#ef4444' } }
-                    }
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+                capsule.innerHTM
