@@ -411,16 +411,38 @@
         // ==========================================
         async function fetchWeatherData(lat, lon) {
             try {
-                // 1. Fetch Location Name
-                const geoUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`;
-                const geoRes = await fetch(geoUrl);
-                
-                if (geoRes.status === 401) {
-                    throw new Error("Invalid API Key. Please click 'Reset API Key' at the bottom of the page and try again.");
-                }
-                
-                const geoData = await geoRes.json();
-                const locationName = (geoData && geoData.length > 0) ? geoData[0].local_names?.en || geoData[0].name : "Unknown Location";
+// 1. Fetch Location Name (Granular Town/Village Lookup)
+let locationName = "Unknown Location";
+
+try {
+    const geoRes = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+    );
+    if (geoRes.ok) {
+        const geoData = await geoRes.json();
+        // Resolves down to village/town (e.g. 'Cranleigh'), then city, then district
+        locationName = geoData.locality || geoData.city || geoData.principalSubdivision || "Unknown Location";
+    }
+} catch (geoErr) {
+    console.warn("Granular geocoding failed, attempting OpenWeather fallback:", geoErr);
+}
+
+// Fallback to OpenWeather if the granular lookup returned nothing
+if (locationName === "Unknown Location") {
+    try {
+        const fallbackRes = await fetch(
+            `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`
+        );
+        if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            locationName = (fallbackData && fallbackData.length > 0)
+                ? fallbackData[0].local_names?.en || fallbackData[0].name
+                : "Unknown Location";
+        }
+    } catch (e) {
+        console.warn("OpenWeather geocoding fallback failed:", e);
+    }
+}
 
                 // 2. Fetch Weather Data
                 const weatherUrl = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`;
