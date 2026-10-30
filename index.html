@@ -397,7 +397,7 @@ function requestLocationAndFetch() {
                 document.getElementById('status-message').textContent = "Location access failed. Using default location...";
                 fetchWeatherData(fallbackLat, fallbackLon);
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
         );
     } else {
         document.getElementById('status-message').textContent = "Geolocation is not supported. Using default location...";
