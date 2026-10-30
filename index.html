@@ -377,27 +377,33 @@
             requestLocationAndFetch();
         });
 
-        function requestLocationAndFetch() {
-            document.getElementById('status-message').textContent = "Requesting location...";
-            
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const lat = position.coords.latitude;
-                        const lon = position.coords.longitude;
-                        document.getElementById('status-message').textContent = "Fetching weather data...";
-                        fetchWeatherData(lat, lon);
-                    },
-                    (error) => {
-                        document.getElementById('status-message').textContent = "Location access denied or failed. Please enable location services for this site.";
-                        console.error("Geolocation error:", error);
-                    },
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                );
-            } else {
-                document.getElementById('status-message').textContent = "Geolocation is not supported by this browser.";
-            }
-        }
+function requestLocationAndFetch() {
+    document.getElementById('status-message').textContent = "Requesting location...";
+    
+    // Default fallback coordinates
+    const fallbackLat = 51.520967;
+    const fallbackLon = -0.124767;
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                document.getElementById('status-message').textContent = "Fetching weather data...";
+                fetchWeatherData(lat, lon);
+            },
+            (error) => {
+                console.warn("Geolocation error:", error);
+                document.getElementById('status-message').textContent = "Location access failed. Using default location...";
+                fetchWeatherData(fallbackLat, fallbackLon);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    } else {
+        document.getElementById('status-message').textContent = "Geolocation is not supported. Using default location...";
+        fetchWeatherData(fallbackLat, fallbackLon);
+    }
+}
 
         function resetApiKey() {
             if(confirm("Are you sure you want to remove your saved API key?")) {
