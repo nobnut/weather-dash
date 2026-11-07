@@ -226,28 +226,28 @@
         }
     </style>
     <!-- Link to the manifest file -->
-<link rel="manifest" href="./manifest.json">
+    <link rel="manifest" href="./manifest.json">
 
-<!-- Register the Service Worker -->
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(registration => {
-          console.log('Service Worker registered successfully');
-        })
-        .catch(error => {
-          console.log('Service Worker registration failed:', error);
+    <!-- Register the Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+              console.log('Service Worker registered successfully');
+            })
+            .catch(error => {
+              console.log('Service Worker registration failed:', error);
+            });
         });
-    });
-  }
-</script>
+      }
+    </script>
 </head>
 <body>
 
     <div class="dashboard-container">
         
-        <div id="status-message">Initializing...</div>
+        <div id="status-message">Fetching weather data...</div>
 
         <!-- Header View -->
         <div class="weather-header" id="header-card">
@@ -359,6 +359,8 @@
     </div>
 
     <script>
+        Chart.register(ChartDataLabels);
+
         // ==========================================
         // LOCAL STORAGE AND GEOLOCATION LOGIC
         // ==========================================
@@ -377,33 +379,34 @@
             requestLocationAndFetch();
         });
 
-function requestLocationAndFetch() {
-    document.getElementById('status-message').textContent = "Requesting location...";
-    
-    // Default fallback coordinates
-    const fallbackLat = 51.1539;
-    const fallbackLon = -0.4370;
+        function requestLocationAndFetch() {
+            // Default fallback coordinates
+            const fallbackLat = 51.1539;
+            const fallbackLon = -0.4370;
 
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
-                document.getElementById('status-message').textContent = "Fetching weather data...";
-                fetchWeatherData(lat, lon);
-            },
-            (error) => {
-                console.warn("Geolocation error:", error);
-                document.getElementById('status-message').textContent = "Location access failed. Using default location...";
-                fetchWeatherData(fallbackLat, fallbackLon);
-            },
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-        );
-    } else {
-        document.getElementById('status-message').textContent = "Geolocation is not supported. Using default location...";
-        fetchWeatherData(fallbackLat, fallbackLon);
-    }
-}
+            // 1. Immediately load weather data for the default location
+            fetchWeatherData(fallbackLat, fallbackLon);
+
+            // 2. Request live GPS location in the background and update if different
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        
+                        // Only re-fetch if live position differs noticeably (~50m) from default
+                        const hasMoved = Math.abs(lat - fallbackLat) > 0.0005 || Math.abs(lon - fallbackLon) > 0.0005;
+                        if (hasMoved) {
+                            fetchWeatherData(lat, lon);
+                        }
+                    },
+                    (error) => {
+                        console.warn("Unable to retrieve live location (" + error.message + "). Staying on default location.");
+                    },
+                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+                );
+            }
+        }
 
         function resetApiKey() {
             if(confirm("Are you sure you want to remove your saved API key?")) {
@@ -417,38 +420,38 @@ function requestLocationAndFetch() {
         // ==========================================
         async function fetchWeatherData(lat, lon) {
             try {
-// 1. Fetch Location Name (Granular Town/Village Lookup)
-let locationName = "Unknown Location";
+                // 1. Fetch Location Name (Granular Town/Village Lookup)
+                let locationName = "Unknown Location";
 
-try {
-    const geoRes = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
-    );
-    if (geoRes.ok) {
-        const geoData = await geoRes.json();
-        // Resolves down to village/town (e.g. 'Cranleigh'), then city, then district
-        locationName = geoData.locality || geoData.city || geoData.principalSubdivision || "Unknown Location";
-    }
-} catch (geoErr) {
-    console.warn("Granular geocoding failed, attempting OpenWeather fallback:", geoErr);
-}
+                try {
+                    const geoRes = await fetch(
+                        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+                    );
+                    if (geoRes.ok) {
+                        const geoData = await geoRes.json();
+                        // Resolves down to village/town (e.g. 'Cranleigh'), then city, then district
+                        locationName = geoData.locality || geoData.city || geoData.principalSubdivision || "Unknown Location";
+                    }
+                } catch (geoErr) {
+                    console.warn("Granular geocoding failed, attempting OpenWeather fallback:", geoErr);
+                }
 
-// Fallback to OpenWeather if the granular lookup returned nothing
-if (locationName === "Unknown Location") {
-    try {
-        const fallbackRes = await fetch(
-            `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`
-        );
-        if (fallbackRes.ok) {
-            const fallbackData = await fallbackRes.json();
-            locationName = (fallbackData && fallbackData.length > 0)
-                ? fallbackData[0].local_names?.en || fallbackData[0].name
-                : "Unknown Location";
-        }
-    } catch (e) {
-        console.warn("OpenWeather geocoding fallback failed:", e);
-    }
-}
+                // Fallback to OpenWeather if the granular lookup returned nothing
+                if (locationName === "Unknown Location") {
+                    try {
+                        const fallbackRes = await fetch(
+                            `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`
+                        );
+                        if (fallbackRes.ok) {
+                            const fallbackData = await fallbackRes.json();
+                            locationName = (fallbackData && fallbackData.length > 0)
+                                ? fallbackData[0].local_names?.en || fallbackData[0].name
+                                : "Unknown Location";
+                        }
+                    } catch (e) {
+                        console.warn("OpenWeather geocoding fallback failed:", e);
+                    }
+                }
 
                 // 2. Fetch Weather Data
                 const weatherUrl = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`;
@@ -469,6 +472,7 @@ if (locationName === "Unknown Location") {
                 initDashboard(weatherData, locationName);
 
             } catch (error) {
+                document.getElementById('status-message').style.display = 'block';
                 document.getElementById('status-message').innerHTML = `<span style="color:var(--alert-red)">${error.message}</span>`;
                 console.error(error);
             }
@@ -563,6 +567,7 @@ if (locationName === "Unknown Location") {
             document.getElementById('bento-uv-label').textContent = uvText;
 
             // --- MINUTELY RAIN GRAPH ---
+            document.getElementById('rain-card').style.display = 'none';
             if (data.minutely && data.minutely.length > 0) {
                 const values = data.minutely.map(m => m.precipitation);
                 const totalRainDetected = values.reduce((a, b) => a + b, 0);
@@ -639,7 +644,6 @@ if (locationName === "Unknown Location") {
             });
 
             // --- METEOGRAMS ---
-            Chart.register(ChartDataLabels);
             renderMeteograms(data);
         }
 
