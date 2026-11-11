@@ -686,6 +686,29 @@
                 const max = Math.max(...validData);
                 return val === max && val > 0 && context.dataIndex === data.indexOf(max);
             };
+const getTempLineColor = (context) => {
+    const chart = context.chart;
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea) return '#ef4444';
+
+    const yScale = scales[context.dataset.yAxisID];
+    const zeroPixel = yScale.getPixelForValue(0);
+
+    // Entire visible chart is above 0°C
+    if (zeroPixel >= chartArea.bottom) return '#ef4444';
+    // Entire visible chart is at or below 0°C
+    if (zeroPixel <= chartArea.top) return '#38bdf8';
+
+    // Mix a sharp vertical gradient right at the 0°C pixel line
+    const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    const ratio = Math.max(0, Math.min(1, (zeroPixel - chartArea.top) / (chartArea.bottom - chartArea.top)));
+
+    gradient.addColorStop(0, '#ef4444');
+    gradient.addColorStop(ratio, '#ef4444');
+    gradient.addColorStop(ratio, '#38bdf8');
+    gradient.addColorStop(1, '#38bdf8');
+    return gradient;
+};
 
             // --- 24-Hour Analytics ---
             const hourly = weatherData.hourly.slice(0, 24);
@@ -740,22 +763,31 @@
                         { label: 'Wind Gust (MPH)', data: windGusts24, yAxisID: 'yWind', borderColor: '#f97316', borderWidth: 1.5, borderDash: [3, 3], tension: 0.4, pointRadius: 0, datalabels: { display: false } },
                         { label: 'Wind Speed (MPH)', data: windSpeeds24, yAxisID: 'yWind', borderColor: '#eab308', borderWidth: 1.5, tension: 0.4, pointRadius: 0, datalabels: { display: false } },
                         {
-                            label: 'Temp (°C)', data: temps24, yAxisID: 'yTemp', borderWidth: 2.5, tension: 0.4, pointRadius: 0,
-                            borderColor: '#ef4444',
-                            datalabels: { display: showLocalPeaks, align: alignPeaks, formatter: Math.round, color: '#ffffff', font: { weight: 'bold', size: 10 }, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 3 }
-                        }
+{
+    label: 'Temp (°C)', data: temps24, yAxisID: 'yTemp', borderWidth: 2.5, tension: 0.4, pointRadius: 0,
+    borderColor: getTempLineColor,
+    datalabels: { 
+        display: showLocalPeaks, 
+        align: alignPeaks, 
+        formatter: Math.round, 
+        color: (ctx) => Math.round(ctx.dataset.data[ctx.dataIndex]) <= 0 ? '#38bdf8' : '#ffffff', 
+        font: { weight: 'bold', size: 10 }, 
+        backgroundColor: 'rgba(0,0,0,0.5)', 
+        borderRadius: 3 
+    }
+}
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
                     scales: {
                         x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#a8c7fa' } },
-                        yTemp: { type: 'linear', position: 'left', grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#ef4444' } },
-                        yWind: { type: 'linear', position: 'right', grid: { display: false }, ticks: { color: '#eab308' }, min: 0 },
-                        yPressure: { display: false, min: Math.min(...pressures24) - 10, max: Math.max(...pressures24) + 10 },
-                        yPop: { display: false, min: 0, max: 350 },
-                        yRain: { display: false, min: 0, max: maxRain24 * 3.5 }
-                    }
+yTemp: { 
+    type: 'linear', 
+    position: 'left', 
+    grid: { color: (ctx) => ctx.tick && ctx.tick.value === 0 ? 'rgba(56, 189, 248, 0.4)' : 'rgba(255,255,255,0.1)' }, 
+    ticks: { color: (ctx) => ctx.tick && ctx.tick.value <= 0 ? '#38bdf8' : '#ef4444' } 
+},
                 }
             });
 
@@ -810,10 +842,21 @@
                         { label: 'Wind Gust (MPH)', data: windGusts7, yAxisID: 'yWind7', borderColor: '#f97316', borderWidth: 1.5, borderDash: [3, 3], tension: 0.4, pointRadius: 2, spanGaps: true, datalabels: { display: false } },
                         { label: 'Wind Speed (MPH)', data: windSpeeds7, yAxisID: 'yWind7', borderColor: '#eab308', borderWidth: 1.5, tension: 0.4, pointRadius: 2, spanGaps: true, datalabels: { display: false } },
                         {
-                            label: 'Temp (°C)', data: temps7, yAxisID: 'yTemp7', borderWidth: 2.5, tension: 0.4, pointRadius: 2,
-                            borderColor: '#ef4444',
-                            datalabels: { display: showLocalPeaks, align: alignPeaks, formatter: Math.round, color: '#ffffff', font: { weight: 'bold', size: 10 }, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 3 }
-                        }
+{
+    label: 'Temp (°C)', data: temps7, yAxisID: 'yTemp7', borderWidth: 2.5, tension: 0.4, pointRadius: 2,
+    borderColor: getTempLineColor,
+    pointBackgroundColor: (ctx) => ctx.raw <= 0 ? '#38bdf8' : '#ef4444',
+    pointBorderColor: (ctx) => ctx.raw <= 0 ? '#38bdf8' : '#ef4444',
+    datalabels: { 
+        display: showLocalPeaks, 
+        align: alignPeaks, 
+        formatter: Math.round, 
+        color: (ctx) => Math.round(ctx.dataset.data[ctx.dataIndex]) <= 0 ? '#38bdf8' : '#ffffff', 
+        font: { weight: 'bold', size: 10 }, 
+        backgroundColor: 'rgba(0,0,0,0.5)', 
+        borderRadius: 3 
+    }
+}
                     ]
                 },
                 options: {
@@ -827,7 +870,12 @@
                                 callback: function(val, index) { return labels7[index] !== '' ? labels7[index] : null; }
                             } 
                         },
-                        yTemp7: { type: 'linear', position: 'left', grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#ef4444' } },
+yTemp7: { 
+    type: 'linear', 
+    position: 'left', 
+    grid: { color: (ctx) => ctx.tick && ctx.tick.value === 0 ? 'rgba(56, 189, 248, 0.4)' : 'rgba(255,255,255,0.1)' }, 
+    ticks: { color: (ctx) => ctx.tick && ctx.tick.value <= 0 ? '#38bdf8' : '#ef4444' } 
+},
                         yWind7: { type: 'linear', position: 'right', grid: { display: false }, ticks: { color: '#eab308' }, min: 0 },
                         yPressure7: { display: false, min: Math.min(...validPressures7) - 10, max: Math.max(...validPressures7) + 10 },
                         yPop7: { display: false, min: 0, max: 350 },
